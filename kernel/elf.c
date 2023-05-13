@@ -192,6 +192,7 @@ endop:;
     }
     // for (int i = 0; i < p->line_ind; i++)
     //     sprint("%p %d %d\n", p->line[i].addr, p->line[i].line, p->line[i].file);
+    
 }
 
 //
@@ -218,7 +219,29 @@ elf_status elf_load(elf_ctx *ctx) {
     if (elf_fpread(ctx, dest, ph_addr.memsz, ph_addr.off) != ph_addr.memsz)
       return EL_EIO;
   }
-
+  
+  elf_sect_header elf_sth;
+  uint64 prelen = ctx->ehdr.shoff + ctx->ehdr.shstrndx*sizeof(elf_sect_header);
+  
+  if(elf_fpread(ctx, (void *)&(elf_sth), sizeof(elf_sect_header), prelen)!=sizeof(elf_sect_header)) return EL_EIO;
+  uint64 name_off = elf_sth.offset;
+  static char dubug_info[1<<15];
+  for (i = 0, off = ctx->ehdr.shoff; i < ctx->ehdr.shnum; i++, off += sizeof(elf_sth)) 
+  {
+    //offset 处拿 nb 那么多放 dest
+    //static uint64 elf_fpread(elf_ctx *ctx, void *dest, uint64 nb, uint64 offset)
+    if (elf_fpread(ctx, (void *)(&elf_sth), sizeof(elf_sth), off)!=sizeof(elf_sth)) return EL_EIO;
+    //sprint("sh_type : %p\n",elf_sth.type);
+    char name_str[64];
+    elf_fpread(ctx, (void *)name_str, 64, name_off + elf_sth.name);
+    if(strcmp(name_str, ".debug_line") == 0) 
+    {
+        if(elf_fpread(ctx, (char *)dubug_info, elf_sth.size, elf_sth.offset) != elf_sth.size) return EL_EIO;
+        //sprint("size:%p\n",elf_sth.size);
+        make_addr_line(ctx, (char *)dubug_info, elf_sth.size); 
+        break;
+    }
+  }
   return EL_OK;
 }
 
