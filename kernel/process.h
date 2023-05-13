@@ -22,6 +22,8 @@ typedef struct trapframe_t {
 typedef struct process_t {
   // pointing to the stack used in trap handling.
   uint64 kstack;
+  // the number of handle_page_fault
+  uint64 p_cnt;
   // user page table
   pagetable_t pagetable;
   // trapframe storing the context of a (User mode) process.

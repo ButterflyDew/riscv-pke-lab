@@ -62,8 +62,16 @@ void handle_user_page_fault(uint64 mcause, uint64 sepc, uint64 stval) {
       // hint: first allocate a new physical page, and then, maps the new page to the
       // virtual address that causes the page fault.
       //panic( "You need to implement the operations that actually handle the page fault in lab2_3.\n" );
-      uint64 npg = (uint64) alloc_page();
-      map_pages(current->pagetable, stval, 1, npg, prot_to_type(PROT_WRITE | PROT_READ, 1));
+      if(current->p_cnt < 8)
+      {
+        uint64 npg = (uint64) alloc_page();
+        map_pages(current->pagetable, stval, 1, npg, prot_to_type(PROT_WRITE | PROT_READ, 1));
+      }
+      else 
+      {
+        panic("this address is not available!");
+      }
+      ++current->p_cnt;
       break;
     default:
       sprint("unknown page fault.\n");
