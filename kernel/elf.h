@@ -5,6 +5,8 @@
 #include "process.h"
 
 #define MAX_CMDLINE_ARGS 64
+#define SHT_SYMTAB 2           /* Symbol table */
+#define SHT_STRTAB 3           /* String table */
 
 // elf header structure
 typedef struct elf_header_t {
@@ -15,13 +17,17 @@ typedef struct elf_header_t {
   uint32 version;   /* Object file version */
   uint64 entry;     /* Entry point virtual address */
   uint64 phoff;     /* Program header table file offset */
+
   uint64 shoff;     /* Section header table file offset */
+  
   uint32 flags;     /* Processor-specific flags */
   uint16 ehsize;    /* ELF header size in bytes */
   uint16 phentsize; /* Program header table entry size */
   uint16 phnum;     /* Program header table entry count */
+
   uint16 shentsize; /* Section header table entry size */
   uint16 shnum;     /* Section header table entry count */
+
   uint16 shstrndx;  /* Section header string table index */
 } elf_header;
 
@@ -55,9 +61,28 @@ typedef struct elf_ctx_t {
   elf_header ehdr;
 } elf_ctx;
 
+typedef struct elf_section_header_t{
+  uint32 name;      
+  uint32 type;      
+  uint64 flags;     
+  uint64 addr;      
+  uint64 offset;   
+  uint64 size;     
+  unsigned char nop[24];
+}elf_section_header;
+
+typedef struct {
+  uint32 st_name;         /* Symbol name (string tbl index) */
+  unsigned char st_info;  /* Symbol type and binding */
+  unsigned char st_other; /* Symbol visibility */
+  uint16 st_shndx;        /* Section index */
+  uint64 st_value;        /* Symbol value */
+  uint64 st_size;         /* Symbol size */
+} elf_symbol;
+
 elf_status elf_init(elf_ctx *ctx, void *info);
 elf_status elf_load(elf_ctx *ctx);
-
+void load_elf_name(process *p,int *length,char namelist[],elf_symbol *sym);
 void load_bincode_from_host_elf(process *p);
 
 #endif

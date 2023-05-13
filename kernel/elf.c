@@ -138,3 +138,87 @@ void load_bincode_from_host_elf(process *p) {
 
   sprint("Application program entry point (virtual address): 0x%lx\n", p->trapframe->epc);
 }
+
+//从offset这个地址中取出nb字节的数据放入到dest对应的地址中
+//static uint64 elf_fpread(elf_ctx *ctx, void *dest, uint64 nb, uint64 offset)
+elf_status elf_load_namelist(elf_ctx *ctx,int *length,char namelist[],elf_symbol *sym)
+{
+  elf_section_header sh;
+  int offset = ctx->ehdr.shoff;
+  int symsize = 0;
+  char str[1024];
+  int strsize = 0;  
+  /* ehdr.shnum: Section header table entry count */
+  /* ehdr.shoff: Section header table file offset */
+  int cnt=0;
+  for(int i = 0; i < ctx->ehdr.shnum; i++, offset += sizeof(elf_section_header)) 
+  {
+    if(elf_fpread(ctx, (void *)&sh, sizeof(sh), offset) != sizeof(sh)) return EL_EIO;
+    //符号表
+    if(sh.type == SHT_SYMTAB) 
+    {  
+      if (elf_fpread(ctx, sym, sh.size, sh.offset) != sh.size) return EL_EIO;
+      symsize += sh.size;
+    } 
+    else if (sh.type == SHT_STRTAB) //字符串表
+    {  
+      if (elf_fpread(ctx, &str + strsize, sh.size, sh.offset) != sh.size) return EL_EIO;
+      strsize += sh.size;
+    }
+  }
+  memcpy(namelist, str, 1024);
+  //sprint("cnt:%p\n",cnt);
+  int sym_cnt = symsize/sizeof(elf_symbol);
+  *length = sym_cnt;
+  // sprint("string is:\n");
+  // for(int i=0;i<strsize;i++) 
+  // {
+  //   sprint("%c",str[i]);
+  //   if(i%sh.size==0) sprint("\n");
+  // }
+  // sprint("\n");
+  // sprint("sym_cnt: %p\n",sym_cnt);
+  // for(int i=0;i<sym_cnt;i++)
+  // {
+  //   sprint("st_name: %p\n",sym[i].st_name);
+  //   sprint("str:%s\n",&str[sym[i].st_name]);
+  //   sprint("str_n:%s\n",&namelist[sym[i].st_name]);
+  //   sprint("value %p\n",sym[i].st_value);
+  //   sprint("info %p\n\n",sym[i].st_info);
+  // }
+  return EL_OK;
+}
+
+void load_elf_name(process *p,int *length,char *namelist,elf_symbol *sym) {
+  arg_buf arg_bug_msg;
+
+  // retrieve command line arguements
+  size_t argc = parse_args(&arg_bug_msg);
+  if (!argc) panic("You need to specify the application program!\n");
+
+  sprint("Application: %s\n", arg_bug_msg.argv[0]);
+
+  //elf loading. elf_ctx is defined in kernel/elf.h, used to track the loading process.
+  elf_ctx elfloader;
+  // elf_info is defined above, used to tie the elf file and its corresponding process.
+  elf_info info;
+
+  info.f = spike_file_open(arg_bug_msg.argv[0], O_RDONLY, 0);
+  info.p = p;
+  // IS_ERR_VALUE is a macro defined in spike_interface/spike_htif.h
+  if (IS_ERR_VALUE(info.f)) panic("Fail on openning the input application program.\n");
+
+  // init elfloader context. elf_init() is defined above.
+  if (elf_init(&elfloader, &info) != EL_OK)
+    panic("fail to init elfloader.\n");
+
+  // load elf. elf_load() is defined above.
+  if (elf_load(&elfloader) != EL_OK) panic("Fail on loading elf.\n");
+
+  if (elf_load_namelist(&elfloader, length, namelist, sym) != EL_OK)  panic("Fail on load_namelis\n");
+
+  // close the host spike file
+  spike_file_close( info.f );
+
+  sprint("Application program entry point (virtual address): 0x%lx\n", p->trapframe->epc);
+}

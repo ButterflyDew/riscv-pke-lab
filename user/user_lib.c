@@ -6,6 +6,7 @@
  */
 
 #include "user_lib.h"
+#include "/Library/Developer/CommandLineTools/SDKs/MacOSX10.15.sdk/usr/include/_types/_uint64_t.h"
 #include "util/types.h"
 #include "util/snprintf.h"
 #include "kernel/syscall.h"
@@ -48,4 +49,12 @@ int printu(const char* s, ...) {
 //
 int exit(int code) {
   return do_user_call(SYS_user_exit, code, 0, 0, 0, 0, 0, 0); 
+}
+
+
+int print_backtrace(int dep)
+{
+    //printu("test");
+    //return 0;
+    return do_user_call(SYS_user_print_backtrace, (uint64)dep, 0, 0, 0, 0, 0, 0);
 }
