@@ -76,3 +76,13 @@ int fork() {
 void yield() {
   do_user_call(SYS_user_yield, 0, 0, 0, 0, 0, 0, 0);
 }
+
+void wait(int pid)
+{
+  while(1)
+  {
+    long ret = do_user_call(SYS_user_wait, pid, 0, 0, 0, 0, 0, 0);
+    if(ret >= -1) break;
+    yield();
+  }
+}

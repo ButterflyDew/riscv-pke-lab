@@ -231,8 +231,12 @@ int do_fork( process* parent)
         // address region of child to the physical pages that actually store the code
         // segment of parent process.
         // DO NOT COPY THE PHYSICAL PAGES, JUST MAP THEM.
-        user_vm_map((pagetable_t) child->pagetable, parent->mapped_info[i].va, PGSIZE, 
-        lookup_pa(parent->pagetable, parent->mapped_info[i].va), prot_to_type(PROT_EXEC | PROT_READ, 1));
+        for(int j = 0; j < parent->mapped_info[i].npages; j++) 
+        {
+          user_vm_map((pagetable_t) child->pagetable, parent->mapped_info[i].va + j * PGSIZE, 
+          PGSIZE, lookup_pa(parent->pagetable, parent->mapped_info[i].va + j * PGSIZE), 
+          prot_to_type(PROT_EXEC | PROT_READ, 1));
+        }        
         //panic( "You need to implement the code segment mapping of child in lab3_1.\n" );
 
         // after mapping, register the vm region (do not delete codes below!)
@@ -240,6 +244,21 @@ int do_fork( process* parent)
         child->mapped_info[child->total_mapped_region].npages =
           parent->mapped_info[i].npages;
         child->mapped_info[child->total_mapped_region].seg_type = CODE_SEGMENT;
+        child->total_mapped_region++;
+        break;
+      case DATA_SEGMENT:
+        for(int j = 0; j < parent->mapped_info[i].npages; j++)
+        {
+          uint64 npa = (uint64)alloc_page();    
+          uint64 pa = lookup_pa(parent->pagetable, parent->mapped_info[i].va + j*PGSIZE);
+          memcpy((void *)npa, (void *)pa, PGSIZE);
+          user_vm_map(child->pagetable, parent->mapped_info[i].va + j*PGSIZE,
+           PGSIZE, npa, prot_to_type(PROT_WRITE | PROT_READ, 1));
+        }
+        child->mapped_info[child->total_mapped_region].va = parent->mapped_info[i].va;
+        child->mapped_info[child->total_mapped_region].npages =
+          parent->mapped_info[i].npages;
+        child->mapped_info[child->total_mapped_region].seg_type = DATA_SEGMENT;
         child->total_mapped_region++;
         break;
     }
@@ -251,4 +270,31 @@ int do_fork( process* parent)
   insert_to_ready_queue( child );
 
   return child->pid;
+}
+
+int do_wait(int pid)
+{
+  if(pid == -1)
+  {
+    int flg = -1;
+    for(int i = 0; i<NPROC; i++)
+    {
+      if(procs[i].parent == current && procs[i].status == ZOMBIE)
+      {
+        //free_process(procs[i]);
+        procs[i].status = FREE;
+        return procs[i].pid;
+      }
+      else if(procs[i].parent == current)
+        flg = -2;
+    }  
+    return flg;
+  }
+  if(pid<NPROC && procs[pid].parent == current && procs[pid].status == ZOMBIE)
+  {
+    procs[pid].status = FREE;
+    return procs[pid].pid;
+  }
+  if(pid<NPROC && procs[pid].parent == current) return -2;
+  return -1;
 }
