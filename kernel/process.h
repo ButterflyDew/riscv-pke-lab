@@ -89,8 +89,14 @@ typedef struct process_t {
 
   // accounting. added @lab3_3
   int tick_count;
+
 }process;
 
+typedef struct semaphore_t{
+  int sem;
+  int status;
+  process *head,*tail;
+}semaphore;
 // switch to run user app
 void switch_to(process*);
 
@@ -102,6 +108,10 @@ process* alloc_process();
 int free_process( process* proc );
 // fork a child from parent
 int do_fork(process* parent);
+
+int alloc_semaphore(int new_sem);
+void do_sem_v(int id);
+void do_sem_p(int id);
 
 // current running process
 extern process* current;

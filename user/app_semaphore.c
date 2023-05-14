@@ -10,6 +10,7 @@ int main(void) {
     int main_sem, child_sem[2];
     main_sem = sem_new(1); 
     for (int i = 0; i < 2; i++) child_sem[i] = sem_new(0);
+    //printu("%d %d %d\n",main_sem, child_sem[0], child_sem[1]);
     int pid = fork();
     if (pid == 0) {
         pid = fork();

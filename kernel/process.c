@@ -28,10 +28,62 @@ extern char trap_sec_start[];
 
 // process pool. added @lab3_1
 process procs[NPROC];
-
+semaphore sem[NPROC];
 // current points to the currently running user-mode application.
 process* current = NULL;
 
+int alloc_semaphore(int new_sem)
+{
+  for(int i = 0;i < NPROC; i++)
+    if(sem[i].status == 0)
+    {
+      sem[i].status = 1;
+      sem[i].sem = new_sem;
+      sem[i].head = NULL;
+      sem[i].tail = NULL;
+      return i;
+    }
+  return -1;
+}
+
+void do_sem_v(int id)
+{
+  //sprint("sem_v %d\n",id);
+  ++sem[id].sem;
+  if(sem[id].sem >=0)
+  {
+    //sprint("sem_v_in %d\n",id);
+    process *now = sem[id].head;
+    int ct=0;
+    while(now != NULL)
+    {
+      //sprint("sem_v_in %d %d\n",id,++ct);
+      insert_to_ready_queue(now);
+      now = now->queue_next;
+    }
+    sem[id].head = sem[id].tail = NULL;
+    //schedule();
+  }
+}
+
+void do_sem_p(int id)
+{
+  --sem[id].sem;
+  //sprint("sem_p %d\n",id);
+  if(sem[id].sem >=0) return;
+  //sprint("sem_p in:%d\n",id);
+  current->status = BLOCKED;
+  if(sem[id].head == NULL) 
+  {
+    sem[id].head = sem[id].tail = current;
+  }
+  else 
+  {
+    sem[id].tail->queue_next = current;
+    sem[id].tail = current;
+  }
+  schedule();
+}
 //
 // switch to a user-mode process
 //
@@ -79,6 +131,7 @@ void init_proc_pool() {
   for (int i = 0; i < NPROC; ++i) {
     procs[i].status = FREE;
     procs[i].pid = i;
+    sem[i].status = 0;
   }
 }
 
