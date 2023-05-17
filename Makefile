@@ -5,7 +5,7 @@
 # if you have an output path, your environment satisfy our requirement.
 
 # ---------------------	macros --------------------------
-CROSS_PREFIX 	:= riscv64-unknown-elf-
+CROSS_PREFIX 	:= /Users/butterflydew/Downloads/riscv-gnu-toolchain/bin/riscv64-unknown-elf-
 CC 				:= $(CROSS_PREFIX)gcc
 AR 				:= $(CROSS_PREFIX)ar
 RANLIB        	:= $(CROSS_PREFIX)ranlib
