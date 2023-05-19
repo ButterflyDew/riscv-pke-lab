@@ -45,7 +45,13 @@ int alloc_semaphore(int new_sem)
     }
   return -1;
 }
-
+void free_semaphore(int sem_id)
+{
+  if(sem[sem_id].status == 0) return;
+  sem[sem_id].status = 0;
+  sem[sem_id].head = NULL;
+  sem[sem_id].tail = NULL;
+}
 void do_sem_v(int id)
 {
   //sprint("sem_v %d\n",id);
