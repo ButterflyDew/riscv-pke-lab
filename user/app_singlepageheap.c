@@ -23,6 +23,7 @@ int main(void) {
     printu("you need to manage the vm space precisely!");
     exit(-1);
   }
+  //printu("0x%lx 0x%lx\n", (uint64)p, (uint64)m);
   better_free((void *)m);
 
   strcpy(p,str);
@@ -34,9 +35,9 @@ int main(void) {
     printu("your malloc is not complete.\n");
     exit(-1);
   }
-//  else{
-//    printu("0x%lx 0x%lx\n", m, n);
-//  }
+  // else{
+  //   printu("m:0x%lx n:0x%lx\n", m, n);
+  // }
   exit(0);
   return 0;
 }

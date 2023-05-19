@@ -13,6 +13,13 @@ enum VMPermision {
   PROT_EXEC = 4,
 };
 
+typedef struct MCB_t
+{
+  uint64 size;
+  uint64 v_addr;
+  uint64 used;
+  struct MCB_t *pre,*suc;
+}MCB;
 uint64 prot_to_type(int prot, int user);
 pte_t *page_walk(pagetable_t pagetable, uint64 va, int alloc);
 uint64 lookup_pa(pagetable_t pagetable, uint64 va);
@@ -30,5 +37,9 @@ void kern_vm_init(void);
 void *user_va_to_pa(pagetable_t page_dir, void *va);
 void user_vm_map(pagetable_t page_dir, uint64 va, uint64 size, uint64 pa, int perm);
 void user_vm_unmap(pagetable_t page_dir, uint64 va, uint64 size, int free);
+
+uint64 user_better_allocate(uint64 n);
+
+uint64 user_better_free(uint64 va);
 
 #endif

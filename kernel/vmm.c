@@ -3,6 +3,7 @@
  */
 
 #include "vmm.h"
+#include "/Users/butterflydew/Downloads/OS_core/riscv-pke/kernel/process.h"
 #include "riscv.h"
 #include "pmm.h"
 #include "util/types.h"
@@ -200,4 +201,186 @@ void user_vm_unmap(pagetable_t page_dir, uint64 va, uint64 size, int free) {
     uint64 pos = (PTE2PA(*PTE));
     free_page((void *)pos);
   }
+}
+
+MCB *head = NULL,*tail = NULL;
+int typ;
+uint64 alloc_n_size(uint64 n)
+{
+  MCB* cur = head;
+  while(cur != NULL)
+  {
+    if(cur->used == 0 && cur -> size >= n + sizeof(MCB))
+      return cur->v_addr;
+    cur = cur->suc;
+  }
+  typ = 1;
+  g_ufree_page = ((g_ufree_page + 15) >> 4)<<4;
+
+  if(ROUNDDOWN(g_ufree_page, PGSIZE) != ROUNDDOWN(g_ufree_page + sizeof(MCB) -1, PGSIZE))
+    g_ufree_page = ROUNDDOWN(g_ufree_page + sizeof(MCB) -1, PGSIZE);
+  uint64 lpos = ROUNDDOWN(g_ufree_page, PGSIZE);
+  uint64 rpos = ROUNDDOWN(g_ufree_page + n +sizeof(MCB) -1 , PGSIZE);
+  // sprint("g_u_page: %p, n:%p\n",g_ufree_page,n);
+  // sprint("[lpos,rpos]=[%p, %p]\n",lpos,rpos);
+  uint64 now = lpos;
+  while(now <= rpos)
+  {
+    pte_t *pte = page_walk(current->pagetable, now, 1);
+    if((*pte & PTE_V) == 0)
+    {
+      uint64 npg = (uint64) alloc_page();
+      * pte = PA2PTE(npg) | PTE_V | prot_to_type(PROT_WRITE | PROT_READ, 1);
+      //sprint("pte:%p\n",*pte);
+    }
+    now += PGSIZE;
+  }
+  return g_ufree_page;
+}
+uint64 user_better_allocate(uint64 n)
+{
+  typ = 0;
+  uint64 mcb_addr = alloc_n_size(n);
+  MCB *now = (MCB *) user_va_to_pa(current->pagetable, (void *)mcb_addr);
+  if(typ)
+  {
+    now->used = 1;
+    now->suc = NULL;
+    now->pre = NULL;
+    now->size = n + sizeof(MCB);
+    now->v_addr = mcb_addr;
+    if(head == NULL) head = tail = now;
+    else
+    {
+      tail -> suc = now;
+      now -> pre = tail;
+      tail = now;
+    }
+    g_ufree_page += n + sizeof(MCB);
+    return mcb_addr + sizeof(MCB);
+  }
+  else 
+  {
+    //sprint("found res\n");
+    now->used = 1;
+    now->size = n + sizeof(MCB);
+    if(now->suc!=NULL) 
+    {
+      uint64 nxtpos = now->v_addr + now->size;
+      nxtpos = (nxtpos + 15) <<4 >> 4;
+      if(nxtpos + sizeof(MCB) < now->suc->v_addr)
+      {
+        MCB *nxtmcb = (MCB *) user_va_to_pa(current->pagetable, (void *)nxtpos);
+        nxtmcb->pre = now;
+        nxtmcb->suc = now->suc;
+        nxtmcb->size = now->suc->v_addr - nxtpos +1;
+        nxtmcb->used = 0;
+        nxtmcb->v_addr = nxtpos;
+        now->suc->pre = nxtmcb;
+        now->suc = nxtmcb;
+      }
+    }
+    return now->v_addr + sizeof(MCB);
+  }
+}
+
+
+
+uint64 user_better_free(uint64 va)
+{
+  //sprint("va:%p\n",va);
+  MCB *now = (MCB *) user_va_to_pa(current->pagetable, (void *)(va - sizeof(MCB)));
+  //sprint("now:%p\n",now);
+  now->used = 0;
+  MCB *lpos = now, *rpos = now;
+  uint64 len = now->size;
+  while(lpos->pre != NULL && lpos->pre->used == 0) lpos = lpos ->pre, len += lpos->size;
+  while(rpos->suc != NULL && rpos->suc->used == 0) rpos = rpos ->suc, len += rpos->size;
+  MCB *res = lpos;
+  res -> used = 0;
+  res -> suc = rpos -> suc;
+  if(rpos->suc!=NULL) rpos->suc->pre = res;
+  res -> size = len;
+  return 0;
+  // uint64 lpos = ROUNDDOWN(va - sizeof(MCB), PGSIZE);
+  // uint64 rpos = ROUNDDOWN(va - sizeof(MCB) + now->size-1 , PGSIZE);
+  // sprint("[lpos,rpos]=[%p, %p]\n",lpos,rpos);
+  // uint64 nowpos = lpos + PGSIZE;
+  // while(nowpos < rpos)
+  // {
+  //   pte_t *pte;
+  //   pte = page_walk(current->pagetable, nowpos, 0);
+  //   if(pte != 0 &&(*pte & PTE_V))
+  //   {
+  //     *pte ^= PTE_V;
+  //     free_page((void *)(PTE2PA(*pte)));
+  //   }
+  //   nowpos += PGSIZE;
+  // }
+  // uint64 pre_addr = 0,suc_addr = 0;
+  // if(now->pre!=NULL) pre_addr = ROUNDDOWN(now->pre->v_addr + now->pre->size -1,PGSIZE);
+  // if(now->suc!=NULL) suc_addr = ROUNDDOWN(now->suc->v_addr, PGSIZE);
+
+  // sprint("[pre_addr,suc_addr] = [%p, %p]\n",pre_addr,suc_addr);
+  // if(lpos == rpos)
+  // {
+  //   if(lpos != pre_addr && rpos != suc_addr)
+  //   {
+  //     pte_t *pte;
+  //     pte = page_walk(current->pagetable, lpos, 0);
+  //     if(pte != 0 &&(*pte & PTE_V))
+  //     {
+  //       *pte ^= PTE_V;
+  //       free_page((void *)(PTE2PA(*pte)));
+  //     }
+  //   }
+  // }
+  // else
+  // {
+  //   if(lpos != pre_addr)
+  //   {
+  //     pte_t *pte;
+  //     pte = page_walk(current->pagetable, lpos, 0);
+  //     if(pte != 0 &&(*pte & PTE_V))
+  //     {
+  //       *pte ^= PTE_V;
+  //       free_page((void *)(PTE2PA(*pte)));
+  //     }
+  //   }
+  //   if(rpos != suc_addr)
+  //   {
+  //     pte_t *pte;
+  //     pte = page_walk(current->pagetable, rpos, 0);
+  //     if(pte != 0 &&(*pte & PTE_V))
+  //     {
+  //       *pte ^= PTE_V;
+  //       free_page((void *)(PTE2PA(*pte)));
+  //     }
+  //   }
+  // }
+  // sprint("free is done\n");
+  // sprint("tail:%p now:%p\n",tail,now);
+  // if(tail == now && head == now)
+  // {
+  //   head = tail = now = NULL;
+  // }
+  // if(tail == now)
+  // {
+  //   tail = now->pre;
+  //   now->pre->suc = NULL;
+  //   now = NULL;
+  // }
+  // else if(now==head)
+  // {
+  //   head = now->suc;
+  //   now->suc->pre = NULL;
+  //   now = NULL;
+  // }
+  // else
+  // {
+  //   now->pre->suc = now->suc;
+  //   now->suc->pre = now->pre;
+  //   now = NULL; 
+  // }
+  // return 0;
 }
