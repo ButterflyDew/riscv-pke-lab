@@ -9,7 +9,7 @@
 #include "pmm.h"
 #include "vmm.h"
 #include "util/functions.h"
-
+#include "memlayout.h"
 #include "spike_interface/spike_utils.h"
 
 //
@@ -62,7 +62,8 @@ void handle_user_page_fault(uint64 mcause, uint64 sepc, uint64 stval) {
       // hint: first allocate a new physical page, and then, maps the new page to the
       // virtual address that causes the page fault.
       //panic( "You need to implement the operations that actually handle the page fault in lab2_3.\n" );
-      if(current->p_cnt < 8)
+      /*是否在用户堆栈的有效范围*/
+      if (stval < USER_STACK_TOP && stval >= USER_STACK_TOP - USER_STACK_PAGE_LIMIT * PGSIZE)
       {
         uint64 npg = (uint64) alloc_page();
         map_pages(current->pagetable, stval, 1, npg, prot_to_type(PROT_WRITE | PROT_READ, 1));
@@ -71,7 +72,7 @@ void handle_user_page_fault(uint64 mcause, uint64 sepc, uint64 stval) {
       {
         panic("this address is not available!");
       }
-      ++current->p_cnt;
+      //++current->p_cnt;
       break;
     default:
       sprint("unknown page fault.\n");
